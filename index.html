@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚽ Fußball Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1a6b2e;
+    --green-light: #27a245;
+    --green-dark: #0f3d19;
+    --gold: #f0c040;
+    --gold-dark: #c9952a;
+    --red: #c0392b;
+    --blue: #1a4fa0;
+    --bg: #0a0f0a;
+    --panel: #111811;
+    --panel2: #182018;
+    --border: #2a3a2a;
+    --text: #d8e8d8;
+    --text-dim: #7a9a7a;
+    --white: #f0f8f0;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Source Sans 3', sans-serif; font-size: 14px; overflow: hidden; }
+
+  /* Layout */
+  #app { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+  #header { background: var(--green-dark); border-bottom: 2px solid var(--gold); display: flex; align-items: center; padding: 0 20px; gap: 20px; }
+  #header h1 { font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 700; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+  #header .hinfo { display: flex; gap: 18px; margin-left: auto; font-size: 13px; }
+  #header .hinfo span { color: var(--text-dim); }
+  #header .hinfo strong { color: var(--gold); }
+  .main { display: grid; grid-template-columns: 180px 1fr; height: 100%; overflow: hidden; }
+
+  /* Sidebar */
+  #sidebar { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .nav-btn { display: block; width: 100%; padding: 13px 18px; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); color: var(--text-dim); cursor: pointer; font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s; }
+  .nav-btn:hover { background: var(--panel2); color: var(--text); }
+  .nav-btn.active { background: var(--green-dark); color: var(--gold); border-left: 3px solid var(--gold); }
+
+  /* Content */
+  #content { overflow-y: auto; padding: 20px; }
+
+  /* Cards / Panels */
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin-bottom: 14px; }
+  .card-title { font-family: 'Oswald', sans-serif; font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  /* Stats */
+  .stat-block { background: var(--panel2); border-radius: 4px; padding: 12px; text-align: center; }
+  .stat-block .val { font-family: 'Oswald', sans-serif; font-size: 28px; font-weight: 700; color: var(--gold); }
+  .stat-block .lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; }
+  th { font-family: 'Oswald', sans-serif; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid #1a241a; font-size: 13px; }
+  tr:hover td { background: #1a2a1a; }
+  tr.my-team td { color: var(--gold); }
+  .pos-badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 11px; font-weight: 600; font-family: 'Oswald', sans-serif; }
+  .pos-TW { background: #1a3a6a; color: #7ab4ff; }
+  .pos-IV { background: #1a4a1a; color: #7aff7a; }
+  .pos-LA,.pos-RA { background: #3a2a0a; color: #ffba4a; }
+  .pos-ZM,.pos-DM,.pos-OM { background: #3a1a3a; color: #ff9aff; }
+  .pos-LA,.pos-RA,.pos-LA,.pos-RA { }
+  .pos-ST,.pos-LS,.pos-RS { background: #4a1a1a; color: #ff8a8a; }
+
+  /* Buttons */
+  .btn { display: inline-block; padding: 8px 16px; border-radius: 3px; border: none; cursor: pointer; font-family: 'Oswald', sans-serif; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s; }
+  .btn-green { background: var(--green); color: var(--white); }
+  .btn-green:hover { background: var(--green-light); }
+  .btn-gold { background: var(--gold-dark); color: #fff; }
+  .btn-gold:hover { background: var(--gold); color: #000; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover { background: #e74c3c; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Rating stars / bar */
+  .rating-bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--border); position: relative; width: 80px; vertical-align: middle; }
+  .rating-bar-fill { height: 100%; border-radius: 3px; position: absolute; left: 0; top: 0; }
+  .r-gold { background: var(--gold); }
+  .r-green { background: var(--green-light); }
+  .r-red { background: var(--red); }
+
+  /* Formation pitch */
+  #pitch-wrap { position: relative; background: radial-gradient(ellipse at center, #1a6b2e 0%, #145224 60%, #0f3d19 100%); border: 3px solid rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden; }
+  .pitch-lines { position: absolute; inset: 0; pointer-events: none; }
+  .pitch-player { position: absolute; transform: translate(-50%, -50%); text-align: center; cursor: pointer; }
+  .pitch-player .player-circle { width: 44px; height: 44px; border-radius: 50%; background: var(--blue); border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 700; color: #fff; margin: 0 auto 2px; transition: all 0.15s; }
+  .pitch-player:hover .player-circle { transform: scale(1.1); border-color: #fff; }
+  .pitch-player .player-name { font-size: 10px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8); white-space: nowrap; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+  .pitch-player .player-rat { font-size: 10px; color: var(--gold); text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
+  /* Match log */
+  #match-log { background: #0a100a; border: 1px solid var(--border); border-radius: 4px; padding: 12px; height: 220px; overflow-y: auto; font-size: 12px; font-family: monospace; }
+  .log-entry { padding: 2px 0; border-bottom: 1px solid #151f15; }
+  .log-goal { color: var(--gold); font-weight: bold; }
+  .log-yellow { color: #f1c40f; }
+  .log-red { color: var(--red); }
+  .log-info { color: var(--text-dim); }
+  .log-win { color: var(--green-light); }
+  .log-loss { color: var(--red); }
+
+  /* Scoreboard */
+  .scoreboard { display: flex; align-items: center; justify-content: center; gap: 20px; background: var(--green-dark); border-radius: 6px; padding: 16px; margin-bottom: 14px; }
+  .score-team { font-family: 'Oswald', sans-serif; font-size: 20px; text-align: center; flex: 1; }
+  .score-val { font-family: 'Oswald', sans-serif; font-size: 48px; font-weight: 700; color: var(--gold); text-align: center; min-width: 80px; }
+  .score-min { font-size: 12px; color: var(--text-dim); text-align: center; }
+
+  /* Notification */
+  #notif { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+  .notif-item { background: var(--panel); border-left: 4px solid var(--gold); padding: 12px 18px; margin-top: 8px; border-radius: 3px; font-size: 13px; animation: slideIn 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .notif-item.notif-green { border-color: var(--green-light); }
+  .notif-item.notif-red { border-color: var(--red); }
+  @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Transfer market */
+  .player-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 12px; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; transition: border-color 0.15s; }
+  .player-card:hover { border-color: var(--green-light); }
+  .player-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+  .player-info { flex: 1; }
+  .player-info .pname { font-weight: 600; font-size: 14px; }
+  .player-info .pdetail { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .player-rat-big { font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 700; color: var(--gold); min-width: 36px; text-align: center; }
+
+  /* Progress bar for morale/fitness */
+  .prog-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 16px; }
+  .tab-btn { padding: 8px 18px; background: var(--panel2); border: 1px solid var(--border); border-bottom: none; cursor: pointer; font-family: 'Oswald', sans-serif; font-size: 13px; letter-spacing: 1px; color: var(--text-dim); }
+  .tab-btn.active { background: var(--panel); color: var(--gold); border-top: 2px solid var(--gold); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Modale */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--panel); border: 1px solid var(--gold); border-radius: 6px; padding: 24px; min-width: 360px; max-width: 560px; max-height: 80vh; overflow-y: auto; position: relative; }
+  .modal-title { font-family: 'Oswald', sans-serif; font-size: 20px; color: var(--gold); margin-bottom: 16px; }
+  .modal-close { position: absolute; top: 12px; right: 14px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 20px; }
+
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  input[type=text], select { background: var(--panel2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 3px; font-size: 13px; }
+  select option { background: var(--panel); }
+
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .chip-green { background: #1a3a1a; color: var(--green-light); }
+  .chip-red { background: #3a1a1a; color: #ff6b6b; }
+  .chip-gold { background: #3a2a00; color: var(--gold); }
+  .chip-blue { background: #1a2a4a; color: #7ab4ff; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--green); }
+
+  .section-title { font-family: 'Oswald', sans-serif; font-size: 20px; color: var(--gold); letter-spacing: 1px; margin-bottom: 16px; text-transform: uppercase; }
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .text-dim { color: var(--text-dim); font-size: 12px; }
+  .text-gold { color: var(--gold); }
+  .text-green { color: var(--green-light); }
+  .text-red { color: var(--red); }
+  .flex { display: flex; }
+  .gap10 { gap: 10px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb14 { margin-bottom: 14px; }
+  .ml-auto { margin-left: auto; }
+  .align-center { align-items: center; }
+  .fw600 { font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <span style="font-size:24px;">⚽</span>
+    <h1>Fußball Manager</h1>
+    <div class="hinfo" id="header-info"></div>
+  </div>
+  <div class="main">
+    <div id="sidebar">
+      <button class="nav-btn active" onclick="showPage('dashboard')">🏠 Dashboard</button>
+      <button class="nav-btn" onclick="showPage('kader')">👥 Kader</button>
+      <button class="nav-btn" onclick="showPage('aufstellung')">🟢 Aufstellung</button>
+      <button class="nav-btn" onclick="showPage('spiel')">⚽ Spiel</button>
+      <button class="nav-btn" onclick="showPage('liga')">🏆 Liga</button>
+      <button class="nav-btn" onclick="showPage('transfers')">💰 Transfers</button>
+      <button class="nav-btn" onclick="showPage('finanzen')">📊 Finanzen</button>
+      <button class="nav-btn" onclick="showPage('jugend')">🌱 Jugend</button>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<div id="notif"></div>
+
+<script>
+// ─── GAME STATE ──────────────────────────────────────────────────────────────
+const POSITIONS = ['TW','IV','IV','LA','RA','DM','ZM','OM','LS','RS','ST'];
+const POS_GROUPS = { TW:['TW'], DEF:['IV','LA','RA'], MID:['DM','ZM','OM'], ATT:['ST','LS','RS'] };
+const FORMATIONS = {
+  // Abwehr immer: LA(links) → IV → IV → RA(rechts)
+  // Mittelfeld 4-3-3: ZM(links) → OM(mitte, weiter vorne) → ZM(rechts)
+  '4-3-3': [
+    {pos:'TW', x:50, y:90},
+    {pos:'LA', x:14, y:72},{pos:'IV', x:36, y:76},{pos:'IV', x:64, y:76},{pos:'RA', x:86, y:72},
+    {pos:'ZM', x:25, y:52},{pos:'OM', x:50, y:46},{pos:'ZM', x:75, y:52},
+    {pos:'LS', x:20, y:22},{pos:'ST', x:50, y:16},{pos:'RS', x:80, y:22}
+  ],
+  // 4-4-2: LA(links) → ZM → ZM → RA(rechts) im Mittelfeld
+  '4-4-2': [
+    {pos:'TW', x:50, y:90},
+    {pos:'LA', x:12, y:73},{pos:'IV', x:36, y:77},{pos:'IV', x:64, y:77},{pos:'RA', x:88, y:73},
+    {pos:'LA', x:12, y:50},{pos:'ZM', x:38, y:52},{pos:'ZM', x:62, y:52},{pos:'RA', x:88, y:50},
+    {pos:'ST', x:36, y:20},{pos:'ST', x:64, y:20}
+  ],
+  // 3-5-2: IV(links) → IV(mitte) → IV(rechts)
+  '3-5-2': [
+    {pos:'TW', x:50, y:90},
+    {pos:'IV', x:22, y:75},{pos:'IV', x:50, y:78},{pos:'IV', x:78, y:75},
+    {pos:'LA', x:10, y:54},{pos:'ZM', x:32, y:52},{pos:'DM', x:50, y:56},{pos:'ZM', x:68, y:52},{pos:'RA', x:90, y:54},
+    {pos:'ST', x:35, y:20},{pos:'ST', x:65, y:20}
+  ],
+  // 4-2-3-1: DM(links) → DM(rechts) davor: LS → OM(mitte, weiter vorne) → RS
+  '4-2-3-1': [
+    {pos:'TW', x:50, y:90},
+    {pos:'LA', x:14, y:73},{pos:'IV', x:36, y:77},{pos:'IV', x:64, y:77},{pos:'RA', x:86, y:73},
+    {pos:'DM', x:33, y:57},{pos:'DM', x:67, y:57},
+    {pos:'LS', x:18, y:36},{pos:'OM', x:50, y:32},{pos:'RS', x:82, y:36},
+    {pos:'ST', x:50, y:16}
+  ],
+};
+
+const VORNAMEN = ['Leon','Max','Paul','Jonas','Lukas','Tim','Jan','Nico','Felix','Moritz','Erik','David','Marco','Sven','Alex','Tobias','Philipp','Stefan','Chris','Kevin'];
+const NACHNAMEN = ['Müller','Schmidt','Schneider','Fischer','Weber','Meyer','Wagner','Becker','Schulz','Hoffmann','Koch','Bauer','Richter','Klein','Wolf','Schröder','Neumann','Zimmermann','Braun','Krüger'];
+const NATIONEN = ['🇩🇪','🇫🇷','🇪🇸','🇧🇷','🇦🇷','🇵🇹','🇮🇹','🇧🇪','🇳🇱','🇭🇷'];
+const TEAMS = ['FC Bayern','Borussia Dortmund','RB Leipzig','Leverkusen','Frankfurt','Wolfsburg','Freiburg','Mainz','Hoffenheim','Augsburg','Stuttgart','Gladbach','Schalke','Bremen','Hamburg','Nürnberg','Düsseldorf','Bochum'];
+
+let G = null;
+
+function rnd(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function fmt(n){return n.toLocaleString('de-DE');}
+function fmtM(n){if(n>=1000000)return (n/1000000).toFixed(1)+'M €';if(n>=1000)return (n/1000).toFixed(0)+'K €';return n+'€';}
+
+function genName(){return pick(VORNAMEN)+' '+pick(NACHNAMEN);}
+
+function genPlayer(pos, ratingMin=50, ratingMax=82){
+  const rat = rnd(ratingMin, ratingMax);
+  const colors = ['#1a4fa0','#4a1a00','#2a0a4a','#1a4a1a','#4a3a00','#3a0a0a'];
+  return {
+    id: Math.random().toString(36).slice(2),
+    name: genName(),
+    pos,
+    nation: pick(NATIONEN),
+    age: rnd(17,35),
+    rating: rat,
+    potential: Math.min(99, rat + rnd(0,15)),
+    morale: rnd(60,95),
+    fitness: rnd(70,100),
+    wage: Math.round(rat * rnd(100,200)),
+    value: Math.round(rat * rat * rnd(800,1500)),
+    goals: 0,
+    assists: 0,
+    games: 0,
+    color: pick(colors),
+    inStarting: false,
+    onMarket: false,
+    contract: rnd(1,4),
+    injured: 0,
+  };
+}
+
+function genTeam(name, strength){
+  const players = [];
+  for(const pos of POSITIONS) players.push(genPlayer(pos, strength-10, strength+8));
+  // Bench
+  ['TW','IV','ZM','ST','LA'].forEach(p=>players.push(genPlayer(p, strength-15, strength)));
+  return { name, players, pts:0, wins:0, draws:0, losses:0, gf:0, ga:0, budget: rnd(5,30)*1000000 };
+}
+
+function initGame(){
+  const teamName = 'FC Heimat';
+  const myPlayers = [];
+  for(const pos of POSITIONS) myPlayers.push(genPlayer(pos, 62, 78));
+  ['TW','IV','ZM','ST'].forEach(p=>myPlayers.push(genPlayer(p, 55,70)));
+  myPlayers[0].inStarting = true; // TW
+
+  const myTeam = {
+    name: teamName,
+    players: myPlayers,
+    pts:0, wins:0, draws:0, losses:0, gf:0, ga:0,
+    budget: 15000000,
+    formation: '4-3-3',
+    tactic: 'ausgeglichen',
+    income: 500000,
+    expenses: 0,
+    history: [],
+  };
+
+  const allTeams = [myTeam];
+  for(let i=1; i<TEAMS.length && i<10; i++){
+    allTeams.push(genTeam(TEAMS[i], rnd(60,82)));
+  }
+
+  const schedule = genSchedule(allTeams);
+  const market = [];
+  for(let i=0;i<30;i++){
+    const pos = pick(POSITIONS);
+    const p = genPlayer(pos, 55, 88);
+    p.onMarket = true;
+    market.push(p);
+  }
+
+  G = {
+    team: myTeam,
+    allTeams,
+    schedule,
+    market,
+    currentRound: 0,
+    totalRounds: (allTeams.length-1)*2,
+    season: 1,
+    matchday: 1,
+    week: 1,
+    log: [],
+    news: [],
+    youth: [],
+    youthTimer: 0,
+    achievements: [],
+  };
+
+  // auto assign starting 11
+  autoAssignStarting();
+  addNews('Willkommen!','Die Saison beginnt! Führe '+teamName+' zum Meistertitel!','gold');
+  saveGame();
+}
+
+function genSchedule(teams){
+  const schedule = [];
+  const n = teams.length;
+  const rounds = (n-1)*2;
+  for(let r=0;r<rounds;r++) schedule.push([]);
+  // simple round robin
+  const t = [...teams];
+  if(n%2!==0) t.push(null);
+  const nn = t.length;
+  for(let r=0;r<nn-1;r++){
+    for(let i=0;i<nn/2;i++){
+      const h = t[i], a = t[nn-1-i];
+      if(h && a) schedule[r].push({home:h,away:a,played:false,hg:0,ag:0});
+    }
+    t.splice(1,0,t.pop());
+  }
+  // return legs
+  const half = nn-1;
+  for(let r=0;r<half;r++){
+    for(const m of schedule[r]){
+      schedule[r+half].push({home:m.away,away:m.home,played:false,hg:0,ag:0});
+    }
+  }
+  return schedule;
+}
+
+function autoAssignStarting(){
+  const pl = G.team.players;
+  pl.forEach(p=>p.inStarting=false);
+  const form = FORMATIONS[G.team.formation];
+  const used = new Set();
+  form.forEach(slot=>{
+    const candidates = pl.filter(p=>!used.has(p.id) && (p.pos===slot.pos || compatiblePos(p.pos,slot.pos)));
+    candidates.sort((a,b)=>b.rating-a.rating);
+    if(candidates[0]){candidates[0].inStarting=true;used.add(candidates[0].id);}
+  });
+}
+
+function compatiblePos(ppos,slotpos){
+  const compat = {
+    IV:['LA','RA','DM'],LA:['IV','RA'],RA:['IV','LA'],
+    DM:['ZM','IV'],ZM:['DM','OM'],OM:['ZM','LS','RS'],
+    LS:['ST','RS','OM'],RS:['ST','LS','OM'],ST:['LS','RS'],
+    TW:[]
+  };
+  return (compat[slotpos]||[]).includes(ppos);
+}
+
+function saveGame(){localStorage.setItem('fussball_manager_v1',JSON.stringify(G));}
+function loadGame(){
+  try{
+    const d=localStorage.getItem('fussball_manager_v1');
+    if(d){G=JSON.parse(d);return true;}
+  }catch(e){}
+  return false;
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+function notify(msg,type=''){
+  const d=document.createElement('div');
+  d.className='notif-item'+(type?' notif-'+type:'');
+  d.textContent=msg;
+  document.getElementById('notif').appendChild(d);
+  setTimeout(()=>d.remove(),3500);
+}
+
+function addNews(title,body,type='info'){
+  G.news.unshift({title,body,type,week:G.week});
+  if(G.news.length>30) G.news.pop();
+}
+
+// ─── HEADER ─────────────────────────────────────────────────────────────────
+function updateHeader(){
+  const t=G.team;
+  document.getElementById('header-info').innerHTML=`
+    <span>Saison <strong>${G.season}</strong></span>
+    <span>Spieltag <strong>${G.matchday}</strong></span>
+    <span>Punkte <strong>${t.pts}</strong></span>
+    <span>Budget <strong>${fmtM(t.budget)}</strong></span>
+  `;
+}
+
+// ─── PAGES ───────────────────────────────────────────────────────────────────
+let curPage='dashboard';
+function showPage(page){
+  curPage=page;
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(page.substring(0,4)));
+  });
+  renderPage();
+}
+
+function renderPage(){
+  updateHeader();
+  const c=document.getElementById('content');
+  switch(curPage){
+    case 'dashboard': c.innerHTML=pageDashboard(); break;
+    case 'kader': c.innerHTML=pageKader(); break;
+    case 'aufstellung': c.innerHTML=pageAufstellung(); attachPitchEvents(); break;
+    case 'spiel': c.innerHTML=pageSpiel(); break;
+    case 'liga': c.innerHTML=pageLiga(); break;
+    case 'transfers': c.innerHTML=pageTransfers(); break;
+    case 'finanzen': c.innerHTML=pageFinanzen(); break;
+    case 'jugend': c.innerHTML=pageJugend(); break;
+  }
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function pageDashboard(){
+  const t=G.team;
+  const rank=getMyRank();
+  const nextMatch=getNextMatch();
+  const avgRating=Math.round(t.players.filter(p=>p.inStarting).reduce((s,p)=>s+p.rating,0)/11||0);
+  
+  let newsHtml='';
+  G.news.slice(0,5).forEach(n=>{
+    const col=n.type==='gold'?'var(--gold)':n.type==='green'?'var(--green-light)':n.type==='red'?'var(--red)':'var(--text-dim)';
+    newsHtml+=`<div class="player-card" style="border-left:3px solid ${col};">
+      <div style="flex:1"><div class="fw600" style="color:${col}">${n.title}</div><div class="text-dim">${n.body}</div></div>
+      <div class="text-dim" style="font-size:11px">Woche ${n.week}</div>
+    </div>`;
+  });
+
+  return `
+    <div class="section-title">📊 Dashboard – ${t.name}</div>
+    <div class="grid3 mb14">
+      <div class="stat-block"><div class="val">${rank}.</div><div class="lbl">Tabellenplatz</div></div>
+      <div class="stat-block"><div class="val">${t.pts}</div><div class="lbl">Punkte</div></div>
+      <div class="stat-block"><div class="val">${fmtM(t.budget)}</div><div class="lbl">Budget</div></div>
+    </div>
+    <div class="grid3 mb14">
+      <div class="stat-block"><div class="val">${t.wins}S ${t.draws}U ${t.losses}N</div><div class="lbl">Bilanz</div></div>
+      <div class="stat-block"><div class="val">${t.gf}:${t.ga}</div><div class="lbl">Tore</div></div>
+      <div class="stat-block"><div class="val">${avgRating}</div><div class="lbl">Ø Stärke</div></div>
+    </div>
+    ${nextMatch?`<div class="card mb14">
+      <div class="card-title">⚡ Nächstes Spiel</div>
+      <div class="scoreboard" style="padding:12px">
+        <div class="score-team">${nextMatch.home.name}</div>
+        <div style="font-family:Oswald;color:var(--text-dim);font-size:18px">vs</div>
+        <div class="score-team">${nextMatch.away.name}</div>
+      </div>
+      <div style="text-align:center"><button class="btn btn-green" onclick="showPage('spiel')">Zum Spiel →</button></div>
+    </div>`:'<div class="card"><div class="card-title">🏆 Saison beendet!</div><div class="text-dim">Alle Spiele absolviert.</div></div>'}
+    <div class="card">
+      <div class="card-title">📰 Neuigkeiten</div>
+      ${newsHtml||'<div class="text-dim">Keine Neuigkeiten</div>'}
+    </div>`;
+}
+
+// ─── KADER ───────────────────────────────────────────────────────────────────
+function pageKader(){
+  let rows='';
+  const sorted=[...G.team.players].sort((a,b)=>POSITIONS.indexOf(a.pos)-POSITIONS.indexOf(b.pos));
+  sorted.forEach(p=>{
+    const injured = p.injured>0?`<span class="chip chip-red">🤕 ${p.injured}W</span>`:'';
+    const starter = p.inStarting?`<span class="chip chip-green">11</span>`:'<span class="chip" style="background:#222;color:#555">Bank</span>';
+    const contractWarn = p.contract<=1?`<span class="chip chip-red" title="Vertrag läuft bald aus!">Vertrag!</span>`:'';
+    const ratingColor = p.rating>=75?'var(--gold)':p.rating>=65?'var(--green-light)':'var(--text-dim)';
+    rows+=`<tr>
+      <td>${starter} ${p.nation}</td>
+      <td>${p.name} ${injured} ${contractWarn}</td>
+      <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
+      <td style="color:${ratingColor};font-family:Oswald;font-weight:700">${p.rating}</td>
+      <td style="color:var(--text-dim)">${p.potential}</td>
+      <td>${p.age}J</td>
+      <td>${p.goals}⚽ ${p.assists}🅰️</td>
+      <td style="color:var(--text-dim)">${fmtM(p.value)}</td>
+      <td>
+        <button class="btn btn-sm btn-gold" onclick="openPlayerModal('${p.id}')">Details</button>
+        <button class="btn btn-sm btn-red" onclick="sellPlayer('${p.id}')" ${G.team.players.length<=15?'disabled':''}>Verkauf</button>
+      </td>
+    </tr>`;
+  });
+  return `
+    <div class="section-title">👥 Kader (${G.team.players.length} Spieler)</div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Status</th><th>Name</th><th>Pos</th><th>Stä</th><th>Pot</th><th>Alter</th><th>Stats</th><th>Wert</th><th>Aktionen</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function openPlayerModal(id){
+  const p=G.team.players.find(x=>x.id===id);
+  if(!p) return;
+  const moraleColor=p.morale>=70?'var(--green-light)':p.morale>=50?'var(--gold)':'var(--red)';
+  const fitnessColor=p.fitness>=70?'var(--green-light)':p.fitness>=50?'var(--gold)':'var(--red)';
+  const html=`
+    <div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+      <div class="modal">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        <div class="modal-title">${p.nation} ${p.name}</div>
+        <div class="flex gap10 mb14">
+          <div style="background:${p.color};width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:24px;font-weight:700;color:#fff;flex-shrink:0">${p.rating}</div>
+          <div>
+            <div><span class="pos-badge pos-${p.pos}">${p.pos}</span> | Alter: ${p.age} | Vertrag: ${p.contract}J</div>
+            <div class="text-dim mt2">Potenzial: ${p.potential} | Wert: ${fmtM(p.value)}</div>
+            <div class="text-dim">Gehalt: ${fmt(p.wage)} €/Woche</div>
+          </div>
+        </div>
+        <div class="mb8"><div class="flex align-center gap10 mb8"><span style="min-width:70px;font-size:12px;color:var(--text-dim)">Moral</span><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${p.morale}%;background:${moraleColor}"></div></div><span style="color:${moraleColor};min-width:30px">${p.morale}%</span></div>
+        <div class="flex align-center gap10"><span style="min-width:70px;font-size:12px;color:var(--text-dim)">Fitness</span><div class="prog-bar" style="flex:1"><div class="prog-fill" style="width:${p.fitness}%;background:${fitnessColor}"></div></div><span style="color:${fitnessColor};min-width:30px">${p.fitness}%</span></div></div>
+        <div class="divider"></div>
+        <div class="grid3">
+          <div class="stat-block"><div class="val" style="font-size:20px">${p.games}</div><div class="lbl">Spiele</div></div>
+          <div class="stat-block"><div class="val" style="font-size:20px">${p.goals}</div><div class="lbl">Tore</div></div>
+          <div class="stat-block"><div class="val" style="font-size:20px">${p.assists}</div><div class="lbl">Assists</div></div>
+        </div>
+        ${p.injured>0?`<div class="chip chip-red mt8" style="margin-top:10px">🤕 Verletzt: noch ${p.injured} Woche(n)</div>`:''}
+        ${p.trainingWeeks>0?`<div style="margin-top:10px"><div class="flex align-center gap10 mb8"><span style="font-size:12px;color:var(--text-dim)">Intensivtraining</span><div class="prog-bar" style="flex:1"><div class="prog-fill r-green" style="width:${Math.round((1-p.trainingWeeks/p.trainingTotal)*100)}%"></div></div><span class="text-green" style="font-size:12px">${p.trainingWeeks}W übrig</span></div><div class="text-dim" style="font-size:11px">Ziel: Stärke ${p.trainingTarget}</div></div>`:''}
+        <div class="flex gap10" style="margin-top:16px">
+          <button class="btn btn-green" onclick="startIntensiveTraining('${p.id}');this.closest('.modal-overlay').remove()">${p.trainingWeeks>0?'Training läuft...':'🏋️ Intensivtraining (200K)'}</button>
+          <button class="btn btn-gold" onclick="renewContract('${p.id}');this.closest('.modal-overlay').remove()">Vertrag verlängern</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function startIntensiveTraining(id){
+  const p=G.team.players.find(x=>x.id===id);
+  if(!p) return;
+  if(p.trainingWeeks>0){notify(`${p.name} trainiert bereits!`,'');return;}
+  if(p.rating>=p.potential){notify(`${p.name} hat sein Potenzial erreicht!`,'');return;}
+  const cost=200000;
+  if(G.team.budget<cost){notify('Nicht genug Budget! (200K €)','red');return;}
+  G.team.budget-=cost;
+  p.trainingTarget=Math.min(p.potential, p.rating+rnd(2,4));
+  p.trainingTotal=rnd(4,8);
+  p.trainingWeeks=p.trainingTotal;
+  notify(`${p.name}: Intensivtraining gestartet! Ziel: Stärke ${p.trainingTarget} in ${p.trainingTotal} Wochen.`,'green');
+  saveGame(); renderPage();
+}
+
+function renewContract(id){
+  const p=G.team.players.find(x=>x.id===id);
+  if(!p) return;
+  const cost=p.wage*52;
+  if(G.team.budget<cost){notify('Nicht genug Budget!','red');return;}
+  G.team.budget-=cost;
+  p.contract=3;
+  notify(`${p.name} verlängert auf 3 Jahre!`,'green');
+  saveGame(); renderPage();
+}
+
+function sellPlayer(id){
+  const p=G.team.players.find(x=>x.id===id);
+  if(!p) return;
+  const val=p.value;
+  G.team.players=G.team.players.filter(x=>x.id!==id);
+  G.team.budget+=val;
+  if(p.inStarting) autoAssignStarting();
+  addNews('Spieler verkauft',`${p.name} wurde für ${fmtM(val)} verkauft.`,'gold');
+  notify(`${p.name} für ${fmtM(val)} verkauft!`,'gold');
+  saveGame(); renderPage();
+}
+
+// ─── AUFSTELLUNG ─────────────────────────────────────────────────────────────
+function pageAufstellung(){
+  const t=G.team;
+  const form=FORMATIONS[t.formation];
+  const starters=t.players.filter(p=>p.inStarting).slice(0,11);
+  
+  const pitchW=440, pitchH=580;
+  let playerDots='';
+  form.forEach((slot,i)=>{
+    const p=starters[i];
+    if(!p) return;
+    const x=(slot.x/100)*pitchW;
+    const y=(slot.y/100)*pitchH;
+    playerDots+=`<div class="pitch-player" style="left:${x}px;top:${y}px" onclick="openSwapModal('${p.id}')">
+      <div class="player-circle" style="background:${p.color}">${p.pos}<br><span style="font-size:9px">${p.rating}</span></div>
+      <div class="player-name">${p.name.split(' ')[1]||p.name}</div>
+    </div>`;
+  });
+
+  // Formation selector
+  let formOpts=Object.keys(FORMATIONS).map(f=>`<option value="${f}" ${f===t.formation?'selected':''}>${f}</option>`).join('');
+  // Tactic selector
+  const tactics=['defensiv','ausgeglichen','offensiv','konter','pressing'];
+  let tacticOpts=tactics.map(ta=>`<option value="${ta}" ${ta===t.tactic?'selected':''}>${ta.charAt(0).toUpperCase()+ta.slice(1)}</option>`).join('');
+
+  // Bench
+  const bench=t.players.filter(p=>!p.inStarting);
+  let benchRows=bench.map(p=>`<tr>
+    <td>${p.nation} ${p.name}</td>
+    <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
+    <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
+    <td><button class="btn btn-sm btn-gold" onclick="openSwapModal('${p.id}')">Einsetzen</button></td>
+  </tr>`).join('');
+
+  return `
+    <div class="section-title">🟢 Aufstellung</div>
+    <div class="flex gap10 mb14 align-center">
+      <label class="text-dim">Formation:</label>
+      <select id="sel-form" onchange="changeFormation(this.value)">${formOpts}</select>
+      <label class="text-dim">Taktik:</label>
+      <select id="sel-tac" onchange="changeTactic(this.value)">${tacticOpts}</select>
+      <button class="btn btn-green" onclick="autoAssignStarting();saveGame();renderPage()">Auto-Aufstellung</button>
+    </div>
+    <div class="grid2">
+      <div>
+        <div id="pitch-wrap" style="width:${pitchW}px;height:${pitchH}px;position:relative;">
+          <svg class="pitch-lines" viewBox="0 0 440 580" xmlns="http://www.w3.org/2000/svg">
+            <rect x="60" y="20" width="320" height="540" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+            <line x1="60" y1="290" x2="380" y2="290" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <circle cx="220" cy="290" r="60" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <rect x="130" y="20" width="180" height="70" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <rect x="130" y="490" width="180" height="70" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <rect x="160" y="20" width="120" height="40" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <rect x="160" y="520" width="120" height="40" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+            <circle cx="220" cy="290" r="4" fill="rgba(255,255,255,0.4)"/>
+          </svg>
+          ${playerDots}
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">🪑 Bank</div>
+          <table><thead><tr><th>Spieler</th><th>Pos</th><th>Stä</th><th></th></tr></thead>
+          <tbody>${benchRows}</tbody></table>
+        </div>
+      </div>
+    </div>`;
+}
+
+function attachPitchEvents(){}
+
+function changeFormation(f){
+  G.team.formation=f;
+  autoAssignStarting();
+  saveGame(); renderPage();
+}
+function changeTactic(t){ G.team.tactic=t; saveGame(); }
+
+function openSwapModal(id){
+  const myP=G.team.players.find(p=>p.id===id);
+  const others=G.team.players.filter(p=>p.id!==id&&!p.injured);
+  let rows=others.map(p=>`<tr>
+    <td>${p.inStarting?'▶️':'🪑'}</td>
+    <td>${p.name}</td>
+    <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
+    <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
+    <td><button class="btn btn-sm btn-green" onclick="swapPlayers('${id}','${p.id}')">Tauschen</button></td>
+  </tr>`).join('');
+  const html=`<div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+    <div class="modal">
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      <div class="modal-title">↔️ ${myP.name} austauschen</div>
+      <table><thead><tr><th></th><th>Name</th><th>Pos</th><th>Stä</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function swapPlayers(id1,id2){
+  const p1=G.team.players.find(p=>p.id===id1);
+  const p2=G.team.players.find(p=>p.id===id2);
+  const tmp=p1.inStarting; p1.inStarting=p2.inStarting; p2.inStarting=tmp;
+  document.querySelector('.modal-overlay')?.remove();
+  saveGame(); renderPage();
+}
+
+// ─── SPIEL ───────────────────────────────────────────────────────────────────
+let matchRunning=false;
+function pageSpiel(){
+  const next=getNextMatch();
+  if(!next){
+    if(G.currentRound>=G.totalRounds){
+      return `<div class="section-title">🏆 Saison abgeschlossen</div>
+        <div class="card"><div class="card-title">Endstand</div>
+        <p class="text-dim mb14">Platz ${getMyRank()} mit ${G.team.pts} Punkten.</p>
+        <button class="btn btn-gold" onclick="newSeason()">Neue Saison starten</button></div>`;
+    }
+    return `<div class="section-title">⚽ Kein Spiel verfügbar</div>`;
+  }
+  const isHome=next.home===G.team;
+  const opp=isHome?next.away:next.home;
+  const oppAvg=Math.round(opp.players.slice(0,11).reduce((s,p)=>s+p.rating,0)/11);
+  const myAvg=Math.round(G.team.players.filter(p=>p.inStarting).reduce((s,p)=>s+p.rating,0)/11||0);
+
+  return `
+    <div class="section-title">⚽ Spieltag ${G.matchday}</div>
+    <div class="scoreboard" id="scoreboard">
+      <div class="score-team">${next.home.name}</div>
+      <div><div class="score-val" id="sc-home">-</div><div class="score-min" id="sc-min">Bereit</div></div>
+      <div class="score-team">${next.away.name}</div>
+    </div>
+    <div class="card mb14">
+      <div class="card-title">Teamvergleich</div>
+      <div class="flex align-center gap10 mb8">
+        <span style="min-width:80px;font-size:12px">Meine Stärke</span>
+        <div class="prog-bar" style="flex:1"><div class="prog-fill r-gold" style="width:${myAvg}%"></div></div>
+        <span class="text-gold fw600">${myAvg}</span>
+      </div>
+      <div class="flex align-center gap10">
+        <span style="min-width:80px;font-size:12px">${opp.name}</span>
+        <div class="prog-bar" style="flex:1"><div class="prog-fill r-red" style="width:${oppAvg}%"></div></div>
+        <span class="text-red fw600">${oppAvg}</span>
+      </div>
+    </div>
+    <div id="match-log" class="mb14"><div class="log-entry log-info">⚽ Presse Start um das Spiel zu beginnen</div></div>
+    <div class="flex gap10 mb14">
+      <button class="btn btn-green" id="btn-play" onclick="startMatch()">▶ Spiel starten</button>
+      <button class="btn btn-gold" id="btn-skip" onclick="skipToEnd()" disabled>⏩ Überspringen</button>
+    </div>`;
+}
+
+function getNextMatch(){
+  for(let r=G.currentRound; r<G.schedule.length; r++){
+    for(const m of G.schedule[r]){
+      if(!m.played&&(m.home===G.team||m.away===G.team)) return m;
+    }
+  }
+  return null;
+}
+
+function getMyRank(){
+  const sorted=[...G.allTeams].sort((a,b)=>{
+    if(b.pts!==a.pts) return b.pts-a.pts;
+    return (b.gf-b.ga)-(a.gf-a.ga);
+  });
+  return sorted.findIndex(t=>t===G.team)+1;
+}
+
+function simMatchFull(match, fast=false){
+  const hTeam=match.home, aTeam=match.away;
+  const hStr=hTeam.players.slice(0,11).reduce((s,p)=>s+p.rating,0)/11;
+  const aStr=aTeam.players.slice(0,11).reduce((s,p)=>s+p.rating,0)/11;
+  
+  // Tactic modifier for my team
+  let myMod=0;
+  if(G.team.tactic==='offensiv') myMod=3;
+  if(G.team.tactic==='defensiv') myMod=-2;
+  if(G.team.tactic==='pressing') myMod=2;
+  
+  const hAdj=(hTeam===G.team?myMod:0);
+  const aAdj=(aTeam===G.team?myMod:0);
+  const hChance=((hStr+hAdj)/(hStr+aStr+hAdj+aAdj));
+  
+  let hg=0,ag=0;
+  const events=[];
+  const scorers={h:[],a:[]};
+  
+  // Simulate 90 minutes
+  for(let min=1;min<=90;min++){
+    if(Math.random()<0.05){
+      const isH=Math.random()<hChance;
+      const team=isH?hTeam:aTeam;
+      const scorer=pick(team.players.filter(p=>p.inStarting||team.players.slice(0,11).includes(p)));
+      if(isH){hg++;scorers.h.push(scorer?.name||'Unbekannt');}
+      else{ag++;scorers.a.push(scorer?.name||'Unbekannt');}
+      if(!fast) events.push({min,type:'goal',team:isH?'home':'away',player:scorer?.name||'?',score:`${hg}:${ag}`});
+      if(scorer&&team===G.team){scorer.goals++;scorer.morale=Math.min(100,scorer.morale+5);}
+    }
+    if(Math.random()<0.015 && !fast) events.push({min,type:'yellow',team:Math.random()<0.5?'home':'away',player:pick((Math.random()<0.5?hTeam:aTeam).players.slice(0,11))?.name||'?'});
+    if(Math.random()<0.003 && !fast) events.push({min,type:'red',team:Math.random()<0.5?'home':'away',player:pick((Math.random()<0.5?hTeam:aTeam).players.slice(0,11))?.name||'?'});
+  }
+  
+  match.hg=hg; match.ag=ag; match.played=true;
+  
+  // Update stats
+  const isH=hTeam===G.team;
+  const myGoals=isH?hg:ag, oppGoals=isH?ag:hg;
+  hTeam.gf+=hg; hTeam.ga+=ag;
+  aTeam.gf+=ag; aTeam.ga+=hg;
+  
+  if(hg>ag){hTeam.pts+=3;hTeam.wins++;aTeam.losses++;}
+  else if(hg===ag){hTeam.pts+=1;aTeam.pts+=1;hTeam.draws++;aTeam.draws++;}
+  else{aTeam.pts+=3;aTeam.wins++;hTeam.losses++;}
+  
+  // Player stats
+  G.team.players.filter(p=>p.inStarting).forEach(p=>{
+    p.games++;
+    p.fitness=Math.max(40,p.fitness-rnd(5,15));
+    if(myGoals>oppGoals) p.morale=Math.min(100,p.morale+5);
+    if(myGoals<oppGoals) p.morale=Math.max(10,p.morale-5);
+  });
+  
+  return {events,hg,ag,scorers};
+}
+
+let matchInterval=null;
+function startMatch(){
+  if(matchRunning) return;
+  const match=getNextMatch();
+  if(!match) return;
+  
+  document.getElementById('btn-play').disabled=true;
+  document.getElementById('btn-skip').disabled=false;
+  matchRunning=true;
+  
+  const result=simMatchFull(match, false);
+  const log=document.getElementById('match-log');
+  if(!log) return;
+  log.innerHTML='';
+  
+  let ei=0;
+  function showEvent(){
+    if(!document.getElementById('match-log')){clearInterval(matchInterval);return;}
+    if(ei>=result.events.length){
+      clearInterval(matchInterval);
+      matchRunning=false;
+      finishMatch(match, result);
+      return;
+    }
+    const ev=result.events[ei++];
+    const el=document.createElement('div');
+    el.className='log-entry';
+    if(ev.type==='goal'){el.classList.add('log-goal');el.textContent=`⚽ ${ev.min}' TOR! ${ev.player} — ${ev.score}`;}
+    else if(ev.type==='yellow'){el.classList.add('log-yellow');el.textContent=`🟨 ${ev.min}' Gelbe Karte: ${ev.player}`;}
+    else if(ev.type==='red'){el.classList.add('log-red');el.textContent=`🟥 ${ev.min}' Rote Karte: ${ev.player}`;}
+    const l=document.getElementById('match-log');
+    if(l){l.appendChild(el);l.scrollTop=l.scrollHeight;}
+    
+    // Update scoreboard
+    const [h,a]=ev.score?.split(':')||[match.hg,match.ag];
+    const sc=document.getElementById('sc-home');
+    const scMin=document.getElementById('sc-min');
+    if(sc) sc.textContent=`${match.hg}:${match.ag}`;
+    if(scMin) scMin.textContent=`${ev.min}'`;
+  }
+  matchInterval=setInterval(showEvent, 80);
+}
+
+function skipToEnd(){
+  clearInterval(matchInterval);
+  const match=getNextMatch();
+  if(!match) return;
+  const result=simMatchFull(match, true);
+  matchRunning=false;
+  finishMatch(match, result);
+}
+
+function finishMatch(match, result){
+  // Advance schedule
+  for(let r=G.currentRound;r<G.schedule.length;r++){
+    const found=G.schedule[r].find(m=>m===match);
+    if(found){
+      // Simulate all other matches in this round
+      G.schedule[r].filter(m=>!m.played).forEach(m=>simMatchFull(m,true));
+      G.currentRound=r+1;
+      G.matchday++;
+      break;
+    }
+  }
+  
+  const isH=match.home===G.team;
+  const myG=isH?match.hg:match.ag, oppG=isH?match.ag:match.hg;
+  const opp=isH?match.away:match.home;
+  
+  let msg='',type='';
+  if(myG>oppG){msg=`Sieg! ${myG}:${oppG} gegen ${opp.name}`;type='green';addNews('Sieg!',msg,'green');}
+  else if(myG===oppG){msg=`Unentschieden ${myG}:${oppG} gegen ${opp.name}`;type='gold';addNews('Unentschieden',msg,'gold');}
+  else{msg=`Niederlage ${myG}:${oppG} gegen ${opp.name}`;type='red';addNews('Niederlage',msg,'red');}
+  
+  G.team.history.push({matchday:G.matchday-1,opp:opp.name,hg:match.hg,ag:match.ag,home:isH});
+  
+  // Random injury
+  if(Math.random()<0.15){
+    const victim=pick(G.team.players.filter(p=>p.inStarting&&p.injured===0));
+    if(victim){victim.injured=rnd(1,4);addNews('Verletzung!',`${victim.name} ist ${victim.injured} Woche(n) verletzt.`,'red');}
+  }
+  
+  // Budget: matchday income
+  G.team.budget+=G.team.income;
+  
+  // Heal injured players
+  G.team.players.forEach(p=>{if(p.injured>0)p.injured--;});
+  
+  // Fitness recovery
+  G.team.players.forEach(p=>{ p.fitness=Math.min(100,p.fitness+rnd(3,8)); });
+  
+  // Contract expiry
+  G.team.players.forEach(p=>{ if(Math.random()<0.02&&p.contract>0)p.contract--; });
+  
+  notify(msg, type);
+  
+  // Add scorer to log
+  const log=document.getElementById('match-log');
+  if(log){
+    const el=document.createElement('div');
+    el.className='log-entry '+(myG>oppG?'log-win':myG<oppG?'log-loss':'log-info');
+    el.textContent=`⏱ Abpfiff! Endergebnis: ${match.home.name} ${match.hg}:${match.ag} ${match.away.name}`;
+    log.appendChild(el); log.scrollTop=log.scrollHeight;
+  }
+  
+  // Auto-training: every player slowly improves toward potential
+  G.team.players.forEach(p=>{
+    if(p.rating < p.potential && Math.random()<0.3){
+      p.rating = Math.min(p.potential, p.rating + 1);
+    }
+    // Intensivtraining countdown
+    if(p.trainingWeeks > 0){
+      p.trainingWeeks--;
+      if(p.trainingWeeks <= 0){
+        p.rating = Math.min(p.potential, p.trainingTarget);
+        p.trainingWeeks = 0;
+        addNews('Training abgeschlossen!', `${p.name} hat Stärke ${p.rating} erreicht!`, 'green');
+      }
+    }
+  });
+
+  // Youth progress tick
+  if(!G.youth) G.youth=[];
+  G.youth.forEach(p=>{
+    if(p.weeksLeft > 0){
+      p.weeksLeft--;
+      const pct = 1 - p.weeksLeft / p.totalWeeks;
+      const gain = Math.round(((p.potential||p.rating) - (p.startRating||p.rating)) * pct);
+      p.rating = (p.startRating||p.rating) + gain;
+      if(p.weeksLeft === 0) addNews('Jugendtalent bereit!', `${p.name} hat die Ausbildung abgeschlossen!`, 'gold');
+    }
+  });
+
+  if(G.currentRound>=G.totalRounds){ addNews('Saisonende','Die Saison ist vorbei!','gold'); }
+  
+  G.week++;
+  saveGame();
+  updateHeader();
+  
+  document.getElementById('btn-play') && (document.getElementById('btn-play').disabled=false);
+  document.getElementById('btn-skip') && (document.getElementById('btn-skip').disabled=true);
+}
+
+function newSeason(){
+  G.season++;
+  G.matchday=1;
+  G.week++;
+  G.currentRound=0;
+  G.allTeams.forEach(t=>{t.pts=0;t.wins=0;t.draws=0;t.losses=0;t.gf=0;t.ga=0;});
+  G.team.players.forEach(p=>{p.goals=0;p.assists=0;p.games=0;});
+  G.schedule=genSchedule(G.allTeams);
+  // Market refresh
+  G.market=[];
+  for(let i=0;i<30;i++){const pos=pick(POSITIONS);const p=genPlayer(pos,55,88);p.onMarket=true;G.market.push(p);}
+  addNews('Neue Saison','Saison '+G.season+' beginnt!','gold');
+  saveGame(); renderPage();
+}
+
+// ─── LIGA ─────────────────────────────────────────────────────────────────────
+function pageLiga(){
+  const sorted=[...G.allTeams].sort((a,b)=>{
+    if(b.pts!==a.pts) return b.pts-a.pts;
+    if((b.gf-b.ga)!==(a.gf-a.ga)) return (b.gf-b.ga)-(a.gf-a.ga);
+    return b.gf-a.gf;
+  });
+  
+  let rows=sorted.map((t,i)=>{
+    const isMe=t===G.team;
+    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return `<tr class="${isMe?'my-team':''}">
+      <td style="font-family:Oswald;font-weight:700">${i+1}. ${medal}</td>
+      <td>${isMe?'▶ ':''}<strong>${t.name}</strong></td>
+      <td>${t.pts}</td>
+      <td>${t.wins}</td>
+      <td>${t.draws}</td>
+      <td>${t.losses}</td>
+      <td>${t.gf}:${t.ga}</td>
+      <td style="color:${t.gf-t.ga>0?'var(--green-light)':t.gf-t.ga<0?'var(--red)':'var(--text-dim)'}">${t.gf-t.ga>0?'+':''}${t.gf-t.ga}</td>
+    </tr>`;
+  }).join('');
+
+  // Last results
+  let history='';
+  G.team.history.slice(-5).reverse().forEach(h=>{
+    const win=(h.home&&h.hg>h.ag)||(!h.home&&h.ag>h.hg);
+    const draw=h.hg===h.ag;
+    const col=win?'var(--green-light)':draw?'var(--gold)':'var(--red)';
+    history+=`<div style="color:${col};font-size:12px;padding:3px 0">${win?'S':draw?'U':'N'} vs ${h.opp} (${h.hg}:${h.ag})</div>`;
+  });
+
+  return `
+    <div class="section-title">🏆 Liga – Saison ${G.season}</div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Tabelle – Spieltag ${G.matchday}</div>
+        <table>
+          <thead><tr><th>#</th><th>Team</th><th>Pkt</th><th>S</th><th>U</th><th>N</th><th>Tore</th><th>Diff</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">📋 Letzte Ergebnisse</div>
+          ${history||'<div class="text-dim">Noch keine Spiele</div>'}
+        </div>
+        <div class="card">
+          <div class="card-title">⚽ Torjäger</div>
+          ${topScorersHtml()}
+        </div>
+      </div>
+    </div>`;
+}
+
+function topScorersHtml(){
+  const all=[];
+  G.allTeams.forEach(t=>t.players.forEach(p=>{if(p.goals>0)all.push({...p,team:t.name});}));
+  all.sort((a,b)=>b.goals-a.goals);
+  return all.slice(0,8).map((p,i)=>`<div class="flex align-center gap10" style="padding:4px 0;border-bottom:1px solid var(--border)">
+    <span style="min-width:20px;font-family:Oswald;color:var(--text-dim)">${i+1}</span>
+    <span style="flex:1">${p.name}</span>
+    <span class="text-dim" style="font-size:11px">${p.team}</span>
+    <span class="text-gold fw600" style="font-family:Oswald">${p.goals}⚽</span>
+  </div>`).join('')||'<div class="text-dim">Noch keine Tore</div>';
+}
+
+// ─── TRANSFERS ───────────────────────────────────────────────────────────────
+function pageTransfers(){
+  // Filter
+  let filterPos='ALLE';
+  let maxVal=Infinity;
+
+  let cards=G.market.map(p=>{
+    const canBuy=G.team.budget>=p.value;
+    const ratingColor=p.rating>=75?'var(--gold)':p.rating>=65?'var(--green-light)':'var(--text-dim)';
+    return `<div class="player-card">
+      <div class="player-avatar" style="background:${p.color}"><span style="font-family:Oswald;font-size:16px;color:#fff;font-weight:700">${p.rating}</span></div>
+      <div class="player-info">
+        <div class="pname">${p.nation} ${p.name}</div>
+        <div class="pdetail"><span class="pos-badge pos-${p.pos}">${p.pos}</span> | Alter: ${p.age} | Pot: ${p.potential}</div>
+        <div class="pdetail">Gehalt: ${fmt(p.wage)} €/W | Vertrag: ${p.contract}J</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:Oswald;font-size:18px;color:var(--gold);font-weight:700">${fmtM(p.value)}</div>
+        <button class="btn btn-sm btn-green" style="margin-top:6px" onclick="buyPlayer('${p.id}')" ${canBuy?'':'disabled'}>Kaufen</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="section-title">💰 Transfermarkt</div>
+    <div class="card mb14">
+      <div class="flex align-center gap10 mb8">
+        <span class="text-dim">Budget:</span>
+        <span class="text-gold fw600" style="font-family:Oswald;font-size:18px">${fmtM(G.team.budget)}</span>
+        <button class="btn btn-sm btn-gold" onclick="refreshMarket()" style="margin-left:auto">🔄 Markt aktualisieren</button>
+      </div>
+    </div>
+    <div style="max-height:calc(100vh - 220px);overflow-y:auto">${cards}</div>`;
+}
+
+function buyPlayer(id){
+  const p=G.market.find(x=>x.id===id);
+  if(!p){notify('Spieler nicht gefunden!','red');return;}
+  if(G.team.budget<p.value){notify('Nicht genug Budget!','red');return;}
+  G.team.budget-=p.value;
+  const newP={...p, onMarket:false, inStarting:false, goals:0, assists:0, games:0};
+  G.team.players.push(newP);
+  G.market=G.market.filter(x=>x.id!==id);
+  addNews('Transfer!',`${p.name} für ${fmtM(p.value)} verpflichtet!`,'gold');
+  notify(`${p.name} verpflichtet für ${fmtM(p.value)}!`,'gold');
+  saveGame(); renderPage();
+}
+
+function refreshMarket(){
+  const cost=200000;
+  if(G.team.budget<cost){notify('Nicht genug Budget für Scouting!','red');return;}
+  G.team.budget-=cost;
+  G.market=[];
+  for(let i=0;i<30;i++){const pos=pick(POSITIONS);const p=genPlayer(pos,55,88);p.onMarket=true;G.market.push(p);}
+  notify('Transfermarkt aktualisiert!','green');
+  saveGame(); renderPage();
+}
+
+// ─── FINANZEN ────────────────────────────────────────────────────────────────
+function pageFinanzen(){
+  const t=G.team;
+  const weeklyWages=t.players.reduce((s,p)=>s+p.wage,0);
+  const yearlyWages=weeklyWages*52;
+  const weeklyIncome=t.income;
+
+  let histHtml='';
+  t.history.slice(-10).reverse().forEach(h=>{
+    const win=(h.home&&h.hg>h.ag)||(!h.home&&h.ag>h.hg);
+    const prize=win?150000:h.hg===h.ag?50000:0;
+    histHtml+=`<tr><td>ST ${h.matchday||'?'}</td><td>${h.opp}</td><td>${h.hg}:${h.ag}</td><td class="${win?'text-green':''}">${prize>0?'+'+fmtM(prize):'-'}</td></tr>`;
+  });
+
+  return `
+    <div class="section-title">📊 Finanzen</div>
+    <div class="grid3 mb14">
+      <div class="stat-block"><div class="val" style="font-size:22px">${fmtM(t.budget)}</div><div class="lbl">Budget</div></div>
+      <div class="stat-block"><div class="val" style="font-size:22px;color:var(--green-light)">${fmtM(weeklyIncome)}</div><div class="lbl">Einnahmen/Woche</div></div>
+      <div class="stat-block"><div class="val" style="font-size:22px;color:var(--red)">${fmtM(weeklyWages)}</div><div class="lbl">Gehälter/Woche</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">💸 Gehaltsliste (Top 10)</div>
+        <table>
+          <thead><tr><th>Spieler</th><th>Pos</th><th>Stärke</th><th>Gehalt/W</th></tr></thead>
+          <tbody>${[...t.players].sort((a,b)=>b.wage-a.wage).slice(0,10).map(p=>`<tr>
+            <td>${p.name}</td>
+            <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
+            <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
+            <td>${fmt(p.wage)} €</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <div class="divider"></div>
+        <div class="flex align-center" style="font-size:13px">
+          <span class="text-dim">Gesamt:</span>
+          <span class="text-red fw600 ml-auto">${fmtM(yearlyWages)} / Jahr</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 Spiel-Prämien</div>
+        <table>
+          <thead><tr><th>Spieltag</th><th>Gegner</th><th>Ergebnis</th><th>Prämie</th></tr></thead>
+          <tbody>${histHtml||'<tr><td colspan="4" class="text-dim">Keine Spiele</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ─── JUGEND ──────────────────────────────────────────────────────────────────
+function pageJugend(){
+  if(!G.youth) G.youth=[];
+  
+  let youthCards=G.youth.map((p,i)=>{
+    const ready=p.weeksLeft<=0;
+    const pct=Math.round((1-p.weeksLeft/p.totalWeeks)*100);
+    const ratingGain=(p.potential||p.rating)-(p.startRating||p.rating);
+    const currentGain=Math.round(ratingGain*(pct/100));
+    const currentRating=(p.startRating||p.rating)+currentGain;
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="flex align-center gap10 mb8">
+        <div style="background:${p.color};width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:Oswald;font-size:18px;font-weight:700;color:#fff;flex-shrink:0">${currentRating}</div>
+        <div style="flex:1">
+          <div class="fw600">${p.nation} ${p.name}</div>
+          <div class="text-dim"><span class="pos-badge pos-${p.pos}">${p.pos}</span> | ${p.age}J | Potenzial: <span class="text-gold">${p.potential}</span></div>
+        </div>
+        <div style="text-align:right">${ready?`<button class="btn btn-sm btn-green" onclick="promoteYouth(${i})">✅ Hochstufen</button>`:`<span class="text-dim" style="font-size:12px">noch ${p.weeksLeft}W</span>`}</div>
+      </div>
+      <div class="flex align-center gap10">
+        <span class="text-dim" style="font-size:11px;min-width:60px">Ausbildung</span>
+        <div class="prog-bar" style="flex:1"><div class="prog-fill r-gold" style="width:${pct}%"></div></div>
+        <span class="text-gold" style="font-size:11px;min-width:32px">${pct}%</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const trainingPlayers=G.team.players.filter(p=>p.trainingWeeks&&p.trainingWeeks>0);
+  let trainingHtml=trainingPlayers.map(p=>{
+    const pct=Math.round((1-p.trainingWeeks/p.trainingTotal)*100);
+    return `<div class="flex align-center gap10" style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1">${p.name} <span class="pos-badge pos-${p.pos}">${p.pos}</span></span>
+      <div class="prog-bar" style="width:100px"><div class="prog-fill r-green" style="width:${pct}%"></div></div>
+      <span class="text-dim" style="font-size:11px;min-width:60px">→ Stärke ${p.trainingTarget} (${p.trainingWeeks}W)</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="section-title">🌱 Jugendakademie & Training</div>
+    <div class="card mb14">
+      <div class="card-title">🏋️ Aktives Intensivtraining</div>
+      <div class="text-dim mb8" style="font-size:12px">Spieler trainieren automatisch nach jedem Spieltag. Im Kader-Detail kannst du gezieltes Intensivtraining starten.</div>
+      ${trainingHtml||'<div class="text-dim">Kein aktives Intensivtraining laufend.</div>'}
+    </div>
+    <div class="card mb14">
+      <div class="card-title">🔍 Jugendtalente</div>
+      <div class="flex align-center gap10">
+        <span class="text-dim">Talente werden automatisch ausgebildet – Stärke wächst bis zum Potenzial.</span>
+        <button class="btn btn-green ml-auto" onclick="scoutYouth()" ${G.team.budget<300000?'disabled':''}>🔍 Scouten (300K €)</button>
+      </div>
+    </div>
+    ${G.youth.length===0?'<div class="card"><div class="text-dim">Noch keine Jugendtalente. Scout neue Spieler!</div></div>':`<div class="section-title" style="font-size:16px">Jugendkader (${G.youth.length})</div>${youthCards}`}`;
+}
+
+function scoutYouth(){
+  const cost=300000;
+  if(G.team.budget<cost){notify('Nicht genug Budget!','red');return;}
+  G.team.budget-=cost;
+  const pos=pick(POSITIONS);
+  const p=genPlayer(pos, 52, 68);
+  p.age=rnd(16,20);
+  p.potential=rnd(p.rating+10, Math.min(99, p.rating+25));
+  p.startRating=p.rating;
+  p.weeksLeft=rnd(8,16);
+  p.totalWeeks=p.weeksLeft;
+  p.inStarting=false;
+  G.youth.push(p);
+  notify(`${p.name} (${p.pos}, ${p.age}J, Pot:${p.potential}) gescoutet!`,'gold');
+  saveGame(); renderPage();
+}
+
+function promoteYouth(i){
+  const p={...G.youth[i], weeksLeft:undefined, totalWeeks:undefined};
+  G.team.players.push(p);
+  G.youth.splice(i,1);
+  notify(`${p.name} zum Profikader hochgestuft!`,'green');
+  addNews('Nachwuchs!',`${p.name} kommt aus der Jugend in den Profikader.`,'green');
+  saveGame(); renderPage();
+}
+
+// Advance youth each matchday - hook into finishMatch
+const origFinish=window.finishMatch;
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function startNewGame(){
+  initGame();
+  renderPage();
+  notify('Willkommen beim Fußball Manager! ⚽','green');
+}
+
+function tryLoad(){
+  if(loadGame()){
+    renderPage();
+    notify('Spielstand geladen!','green');
+  } else {
+    // Show start screen
+    document.getElementById('content').innerHTML=startScreen();
+  }
+}
+
+function startScreen(){
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;text-align:center">
+      <div style="font-size:80px;margin-bottom:20px">⚽</div>
+      <div style="font-family:Oswald;font-size:40px;font-weight:700;color:var(--gold);letter-spacing:4px;margin-bottom:8px">FUSSBALL MANAGER</div>
+      <div style="color:var(--text-dim);font-size:16px;margin-bottom:40px">Führe dein Team zum Meistertitel</div>
+      <button class="btn btn-gold" style="font-size:18px;padding:14px 40px" onclick="startNewGame()">🏆 Neues Spiel starten</button>
+      <div style="color:var(--text-dim);font-size:12px;margin-top:20px">Kein gespeichertes Spiel gefunden</div>
+    </div>`;
+}
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  tryLoad();
+});
+</script>
+</body>
+</html>
