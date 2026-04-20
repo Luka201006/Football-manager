@@ -201,6 +201,36 @@
 <script>
 // ─── GAME STATE ──────────────────────────────────────────────────────────────
 const POSITIONS = ['TW','IV','IV','LA','RA','DM','ZM','OM','LS','RS','ST'];
+const BENCH_POSITIONS = ['TW','IV','LA','RA','DM','ZM','OM','ST','LS','RS','IV'];
+
+// Spieler können mehrere Positionen spielen
+const SECONDARY_POS = {
+  'TW':  [],
+  'IV':  ['DM','LA','RA'],
+  'LA':  ['IV','RA','ZM'],
+  'RA':  ['IV','LA','ZM'],
+  'DM':  ['IV','ZM'],
+  'ZM':  ['DM','OM','LA','RA'],
+  'OM':  ['ZM','LS','RS','ST'],
+  'LS':  ['ST','OM','RS'],
+  'RS':  ['ST','OM','LS'],
+  'ST':  ['LS','RS','OM'],
+};
+const BENCH_POSITIONS = ['TW','IV','LA','RA','DM','ZM','OM','ST','LS','RS','IV'];
+
+// Spieler können mehrere Positionen spielen
+const SECONDARY_POS = {
+  'TW':  [],
+  'IV':  ['DM','LA','RA'],
+  'LA':  ['IV','RA','ZM'],
+  'RA':  ['IV','LA','ZM'],
+  'DM':  ['IV','ZM'],
+  'ZM':  ['DM','OM','LA','RA'],
+  'OM':  ['ZM','LS','RS','ST'],
+  'LS':  ['ST','OM','RS'],
+  'RS':  ['ST','OM','LS'],
+  'ST':  ['LS','RS','OM'],
+};
 
 // y: 88=unten(TW), 12=oben(Sturm). x: 10=links, 90=rechts.
 // Abwehr von links nach rechts: LA, IV, IV, RA
@@ -265,10 +295,13 @@ function genPlayer(pos, ratingMin=50, ratingMax=82){
   const rat = rnd(ratingMin, ratingMax);
   const colors = ['#1a4fa0','#4a1a00','#2a0a4a','#1a4a1a','#4a3a00','#3a0a0a'];
   const nation = pick(NATIONEN);
+  const secPool = SECONDARY_POS[pos] || [];
+  const altPositions = secPool.filter(()=>Math.random()<0.45).slice(0,2);
   return {
     id: Math.random().toString(36).slice(2),
     name: genName(nation),
     pos,
+    altPositions,
     nation,
     age: rnd(17,35),
     rating: rat,
@@ -288,11 +321,15 @@ function genPlayer(pos, ratingMin=50, ratingMax=82){
   };
 }
 
+function canPlayPosition(player, slotPos){
+  return player.pos === slotPos || (player.altPositions||[]).includes(slotPos);
+}
+
 function genTeam(name, strength){
   const players = [];
   for(const pos of POSITIONS) players.push(genPlayer(pos, strength-10, strength+8));
-  // Bench
-  ['TW','IV','ZM','ST','LA'].forEach(p=>players.push(genPlayer(p, strength-15, strength)));
+  // 11 Ersatzspieler
+  for(const pos of BENCH_POSITIONS) players.push(genPlayer(pos, strength-15, strength));
   return { name, players, pts:0, wins:0, draws:0, losses:0, gf:0, ga:0, budget: rnd(5,30)*1000000 };
 }
 
@@ -300,8 +337,7 @@ function initGame(){
   const teamName = 'FC Heimat';
   const myPlayers = [];
   for(const pos of POSITIONS) myPlayers.push(genPlayer(pos, 62, 78));
-  ['TW','IV','ZM','ST'].forEach(p=>myPlayers.push(genPlayer(p, 55,70)));
-  myPlayers[0].inStarting = true; // TW
+  for(const pos of BENCH_POSITIONS) myPlayers.push(genPlayer(pos, 55, 72));
 
   const myTeam = {
     name: teamName,
@@ -316,8 +352,13 @@ function initGame(){
   };
 
   const allTeams = [myTeam];
-  for(let i=1; i<TEAMS.length && i<10; i++){
+  for(let i=1; i<TEAMS.length && i<18; i++){
     allTeams.push(genTeam(TEAMS[i], rnd(60,82)));
+  }
+  const extraTeams = ['FC Stadtmitte','SV Nordpark','TSV Obertal','FC Westend','SV Blau-Weiß','SSV Römerberg','FC Grünwald'];
+  let ei=0;
+  while(allTeams.length < 18){
+    allTeams.push(genTeam(extraTeams[ei++]||('Team '+allTeams.length), rnd(58,80)));
   }
 
   const schedule = genSchedule(allTeams);
@@ -348,6 +389,7 @@ function initGame(){
 
   // auto assign starting 11
   autoAssignStarting();
+  G.awaitingNextRound = false;
   addNews('Willkommen!','Die Saison beginnt! Führe '+teamName+' zum Meistertitel!','gold');
   saveGame();
 }
@@ -403,7 +445,13 @@ function autoAssignStarting(){
     let candidates = pl.filter(p=>!used.has(p.id) && !p.injured && p.pos===slot.pos);
     candidates.sort((a,b)=>b.rating-a.rating);
 
-    // 2. Falls kein exakter Match: Fallback-Positionen
+    // 2. Spieler die die Position als Nebenposition können
+    if(!candidates.length){
+      candidates = pl.filter(p=>!used.has(p.id) && !p.injured && (p.altPositions||[]).includes(slot.pos));
+      candidates.sort((a,b)=>b.rating-a.rating);
+    }
+
+    // 3. Falls kein Match: Fallback-Positionen
     if(!candidates.length){
       const fallbacks = FALLBACK[slot.pos] || [];
       candidates = pl.filter(p=>!used.has(p.id) && !p.injured && fallbacks.includes(p.pos));
@@ -505,7 +553,10 @@ function pageDashboard(){
   });
 
   return `
-    <div class="section-title">📊 Dashboard – ${t.name}</div>
+    <div class="flex align-center mb14">
+      <div class="section-title" style="margin-bottom:0">📊 Dashboard – ${t.name}</div>
+      <button class="btn btn-red btn-sm ml-auto" onclick="confirmNewGame()">🔄 Neu starten</button>
+    </div>
     <div class="grid3 mb14">
       <div class="stat-block"><div class="val">${rank}.</div><div class="lbl">Tabellenplatz</div></div>
       <div class="stat-block"><div class="val">${t.pts}</div><div class="lbl">Punkte</div></div>
@@ -523,7 +574,11 @@ function pageDashboard(){
         <div style="font-family:Oswald;color:var(--text-dim);font-size:18px">vs</div>
         <div class="score-team">${nextMatch.away.name}</div>
       </div>
-      <div style="text-align:center"><button class="btn btn-green" onclick="showPage('spiel')">Zum Spiel →</button></div>
+      <div style="text-align:center">
+        ${G.awaitingNextRound
+          ? `<button class="btn btn-gold" onclick="showPage('spiel')">📅 Woche simulieren →</button>`
+          : `<button class="btn btn-green" onclick="showPage('spiel')">Zum Spiel →</button>`}
+      </div>
     </div>`:'<div class="card"><div class="card-title">🏆 Saison beendet!</div><div class="text-dim">Alle Spiele absolviert.</div></div>'}
     <div class="card">
       <div class="card-title">📰 Neuigkeiten</div>
@@ -644,18 +699,57 @@ function sellPlayer(id){
 function pageAufstellung(){
   const t=G.team;
   const form=FORMATIONS[t.formation];
-  const starters=t.players.filter(p=>p.inStarting).slice(0,11);
-  
+  const starters=t.players.filter(p=>p.inStarting);
+
+  // Map each formation slot to the correct player by position (same logic as autoAssignStarting)
+  const FALLBACK = {
+    'TW': [],
+    'IV': ['DM'],
+    'LA': ['IV','RA'],
+    'RA': ['IV','LA'],
+    'DM': ['IV','ZM'],
+    'ZM': ['DM','OM'],
+    'OM': ['ZM','LS','RS'],
+    'LS': ['ST','OM'],
+    'RS': ['ST','OM'],
+    'ST': ['LS','RS'],
+  };
+  const used = new Set();
+  const slotPlayers = form.map(slot => {
+    let candidates = starters.filter(p=>!used.has(p.id) && p.pos===slot.pos);
+    candidates.sort((a,b)=>b.rating-a.rating);
+    if(!candidates.length){
+      candidates = starters.filter(p=>!used.has(p.id) && (p.altPositions||[]).includes(slot.pos));
+      candidates.sort((a,b)=>b.rating-a.rating);
+    }
+    if(!candidates.length){
+      const fallbacks = FALLBACK[slot.pos]||[];
+      candidates = starters.filter(p=>!used.has(p.id) && fallbacks.includes(p.pos));
+      candidates.sort((a,b)=>b.rating-a.rating);
+    }
+    if(!candidates.length){
+      candidates = starters.filter(p=>!used.has(p.id));
+      candidates.sort((a,b)=>b.rating-a.rating);
+    }
+    if(candidates[0]){ used.add(candidates[0].id); return candidates[0]; }
+    return null;
+  });
+
   const pitchW=440, pitchH=580;
   let playerDots='';
   form.forEach((slot,i)=>{
-    const p=starters[i];
+    const p=slotPlayers[i];
     if(!p) return;
     const x=(slot.x/100)*pitchW;
     const y=(slot.y/100)*pitchH;
+    // Show a warning indicator if player is out of position
+    const outOfPos = p.pos !== slot.pos;
+    const borderColor = outOfPos ? '#ff6b6b' : 'var(--gold)';
+    const posLabel = outOfPos ? `<span style="color:#ff6b6b;font-size:8px">${p.pos}→${slot.pos}</span>` : '';
     playerDots+=`<div class="pitch-player" style="left:${x}px;top:${y}px" onclick="openSwapModal('${p.id}')">
-      <div class="player-circle" style="background:${p.color}">${p.pos}<br><span style="font-size:9px">${p.rating}</span></div>
+      <div class="player-circle" style="background:${p.color};border-color:${borderColor}">${slot.pos}<br><span style="font-size:9px">${p.rating}</span></div>
       <div class="player-name">${p.name.split(' ')[1]||p.name}</div>
+      ${posLabel}
     </div>`;
   });
 
@@ -786,8 +880,11 @@ function pageSpiel(){
     </div>
     <div id="match-log" class="mb14"><div class="log-entry log-info">⚽ Presse Start um das Spiel zu beginnen</div></div>
     <div class="flex gap10 mb14">
-      <button class="btn btn-green" id="btn-play" onclick="startMatch()">▶ Spiel starten</button>
-      <button class="btn btn-gold" id="btn-skip" onclick="skipToEnd()" disabled>⏩ Überspringen</button>
+      ${G.awaitingNextRound
+        ? `<button class="btn btn-gold" onclick="simulateWeek()">📅 Woche simulieren & weiter</button><span class="text-dim" style="align-self:center;font-size:12px">Erst Woche durchlaufen lassen!</span>`
+        : `<button class="btn btn-green" id="btn-play" onclick="startMatch()">▶ Spiel starten</button>
+           <button class="btn btn-gold" id="btn-skip" onclick="skipToEnd()" disabled>⏩ Überspringen</button>`
+      }
     </div>`;
 }
 
@@ -910,10 +1007,10 @@ function startMatch(){
 
 function skipToEnd(){
   clearInterval(matchInterval);
-  const match=getNextMatch();
-  if(!match) return;
-  const result=simMatchFull(match, true);
   matchRunning=false;
+  const match=getNextMatch();
+  if(!match||match.played) return;
+  const result=simMatchFull(match, true);
   finishMatch(match, result);
 }
 
@@ -999,13 +1096,69 @@ function finishMatch(match, result){
   });
 
   if(G.currentRound>=G.totalRounds){ addNews('Saisonende','Die Saison ist vorbei!','gold'); }
-  
+
+  // Nach dem Spiel: Wochensimulation nötig bevor nächstes Spiel
+  G.awaitingNextRound = true;
   G.week++;
   saveGame();
   updateHeader();
-  
-  document.getElementById('btn-play') && (document.getElementById('btn-play').disabled=false);
-  document.getElementById('btn-skip') && (document.getElementById('btn-skip').disabled=true);
+
+  // Buttons aktualisieren ohne ganzen Screen neu zu rendern
+  const btnPlay = document.getElementById('btn-play');
+  const btnSkip = document.getElementById('btn-skip');
+  if(btnPlay) btnPlay.disabled = true;
+  if(btnSkip) btnSkip.disabled = true;
+
+  // "Woche simulieren"-Button einblenden
+  const btnArea = btnPlay?.parentElement || btnSkip?.parentElement;
+  if(btnArea){
+    btnArea.innerHTML = `<button class="btn btn-gold" onclick="simulateWeek()">📅 Woche simulieren & weiter</button><span class="text-dim" style="align-self:center;font-size:12px">Erst Woche durchlaufen lassen!</span>`;
+  }
+}
+
+function simulateWeek(){
+  if(!G.awaitingNextRound) return;
+  G.awaitingNextRound = false;
+
+  // Fitness erholen
+  G.team.players.forEach(p=>{ p.fitness=Math.min(100,p.fitness+rnd(5,12)); });
+  // Verletzte heilen
+  G.team.players.forEach(p=>{if(p.injured>0)p.injured--;});
+  // Intensivtraining
+  G.team.players.forEach(p=>{
+    if(p.trainingWeeks>0){
+      p.trainingWeeks--;
+      if(p.trainingWeeks<=0){
+        p.rating=Math.min(p.potential,p.trainingTarget);
+        p.trainingWeeks=0;
+        addNews('Training!',`${p.name} hat Stärke ${p.rating} erreicht!`,'green');
+      }
+    }
+  });
+  // Jugend
+  if(!G.youth) G.youth=[];
+  G.youth.forEach(p=>{
+    if(p.weeksLeft>0){
+      p.weeksLeft--;
+      const pct=1-p.weeksLeft/p.totalWeeks;
+      const gain=Math.round(((p.potential||p.rating)-(p.startRating||p.rating))*pct);
+      p.rating=(p.startRating||p.rating)+gain;
+      if(p.weeksLeft===0) addNews('Jugendtalent bereit!',`${p.name} hat die Ausbildung abgeschlossen!`,'gold');
+    }
+  });
+  // Zufällige Ereignisse
+  if(Math.random()<0.08){
+    const p=pick(G.team.players);
+    if(p && p.injured===0){ p.injured=rnd(1,3); addNews('Trainingsverletzung!',`${p.name} verletzt sich im Training (${p.injured}W).`,'red'); }
+  }
+  if(Math.random()<0.06){
+    const p=pick(G.team.players);
+    if(p){ p.morale=Math.min(100,p.morale+rnd(5,15)); addNews('Gute Stimmung',`${p.name} ist top motiviert!`,'green'); }
+  }
+  G.week++;
+  G.team.budget+=Math.round(G.team.income*0.25); // wöchentliche Einnahmen
+  notify('Woche simuliert – bereit für das nächste Spiel!','green');
+  saveGame(); renderPage();
 }
 
 function newSeason(){
@@ -1176,7 +1329,7 @@ function pageFinanzen(){
           <thead><tr><th>Spieler</th><th>Pos</th><th>Stärke</th><th>Gehalt/W</th></tr></thead>
           <tbody>${[...t.players].sort((a,b)=>b.wage-a.wage).slice(0,10).map(p=>`<tr>
             <td>${p.name}</td>
-            <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
+            <td><span class="pos-badge pos-${p.pos}">${p.pos}</span>${(p.altPositions||[]).map(ap=>`<span class="pos-badge pos-${ap}" style="opacity:0.6;margin-left:2px">${ap}</span>`).join('')}</td>
             <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
             <td>${fmt(p.wage)} €</td>
           </tr>`).join('')}</tbody>
@@ -1285,6 +1438,20 @@ function startNewGame(){
   initGame();
   renderPage();
   notify('Willkommen beim Fußball Manager! ⚽','green');
+}
+
+function confirmNewGame(){
+  const html=`<div class="modal-overlay" onclick="if(event.target===this)this.remove()">
+    <div class="modal" style="text-align:center">
+      <div class="modal-title">🔄 Neues Spiel starten?</div>
+      <p style="color:var(--text-dim);margin-bottom:20px">Dein aktueller Spielstand wird gelöscht und ein neues Spiel beginnt.</p>
+      <div class="flex gap10" style="justify-content:center">
+        <button class="btn btn-red" onclick="localStorage.removeItem('fussball_manager_v3');startNewGame();this.closest('.modal-overlay').remove()">✅ Ja, neu starten</button>
+        <button class="btn btn-green" onclick="this.closest('.modal-overlay').remove()">❌ Abbrechen</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 
 function tryLoad(){
