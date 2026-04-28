@@ -280,13 +280,40 @@ function genName(nation){
   return pick(d.v)+' '+pick(d.n);
 }
 
+function calcValue(rating, potential, age){
+  // Basiskurve: Stärke^2.5 (steile Kurve wie in FM/FIFA)
+  const base = Math.pow(rating, 2.5) * 80;
+
+  // Altersfaktor: Peak bei 24-27, danach stark fallend
+  let ageFactor;
+  if(age <= 18)       ageFactor = 0.55 + (age-16)*0.08;   // Talent
+  else if(age <= 24)  ageFactor = 0.75 + (age-18)*0.05;   // Aufstieg
+  else if(age <= 27)  ageFactor = 1.05;                     // Peak
+  else if(age <= 30)  ageFactor = 1.05 - (age-27)*0.07;   // leichter Abfall
+  else if(age <= 33)  ageFactor = 0.84 - (age-30)*0.09;   // starker Abfall
+  else                ageFactor = Math.max(0.15, 0.57 - (age-33)*0.08);
+
+  // Potenzialbonus
+  const potGap = Math.max(0, potential - rating);
+  const potFactor = 1 + potGap * 0.025;
+
+  const raw = base * ageFactor * potFactor;
+
+  // Realistische Staffelung
+  if(raw < 100000)        return Math.round(raw / 5000) * 5000;
+  else if(raw < 1000000)  return Math.round(raw / 50000) * 50000;
+  else if(raw < 10000000) return Math.round(raw / 500000) * 500000;
+  else if(raw < 50000000) return Math.round(raw / 1000000) * 1000000;
+  else                    return Math.round(raw / 5000000) * 5000000;
+}
+
 function genPlayer(pos, ratingMin=50, ratingMax=82){
   const rat = rnd(ratingMin, ratingMax);
   const colors = ['#1a4fa0','#4a1a00','#2a0a4a','#1a4a1a','#4a3a00','#3a0a0a'];
   const nation = pick(NATIONEN);
   const secPool = SECONDARY_POS[pos] || [];
   const altPositions = secPool.filter(()=>Math.random()<0.45).slice(0,2);
-  return {
+  const p = {
     id: Math.random().toString(36).slice(2),
     name: genName(nation),
     pos,
@@ -298,7 +325,6 @@ function genPlayer(pos, ratingMin=50, ratingMax=82){
     morale: rnd(60,95),
     fitness: rnd(70,100),
     wage: Math.round(rat * rnd(100,200)),
-    value: Math.round(rat * rat * rnd(800,1500)),
     goals: 0,
     assists: 0,
     games: 0,
@@ -308,6 +334,12 @@ function genPlayer(pos, ratingMin=50, ratingMax=82){
     contract: rnd(1,4),
     injured: 0,
   };
+  p.value = calcValue(p.rating, p.potential, p.age);
+  return p;
+}
+
+function recalcValue(player){
+  player.value = calcValue(player.rating, player.potential, player.age);
 }
 
 function canPlayPosition(player, slotPos){
@@ -690,7 +722,6 @@ function pageAufstellung(){
   const form=FORMATIONS[t.formation];
   const starters=t.players.filter(p=>p.inStarting);
 
-  // Map each formation slot to the correct player by position (same logic as autoAssignStarting)
   const FALLBACK = {
     'TW': [],
     'IV': ['DM'],
@@ -703,8 +734,22 @@ function pageAufstellung(){
     'RS': ['ST','OM'],
     'ST': ['LS','RS'],
   };
+
+  // Use manual slot assignments if available, otherwise auto-assign
+  const assignments = G.slotAssignments || {};
   const used = new Set();
-  const slotPlayers = form.map(slot => {
+
+  // First pass: place manually assigned players
+  const slotPlayers = form.map((slot, i) => {
+    const manualPlayer = starters.find(p => assignments[p.id] === i && !used.has(p.id));
+    if(manualPlayer){ used.add(manualPlayer.id); return manualPlayer; }
+    return null;
+  });
+
+  // Second pass: auto-fill remaining slots
+  slotPlayers.forEach((p, i) => {
+    if(p) return;
+    const slot = form[i];
     let candidates = starters.filter(p=>!used.has(p.id) && p.pos===slot.pos);
     candidates.sort((a,b)=>b.rating-a.rating);
     if(!candidates.length){
@@ -720,8 +765,7 @@ function pageAufstellung(){
       candidates = starters.filter(p=>!used.has(p.id));
       candidates.sort((a,b)=>b.rating-a.rating);
     }
-    if(candidates[0]){ used.add(candidates[0].id); return candidates[0]; }
-    return null;
+    if(candidates[0]){ used.add(candidates[0].id); slotPlayers[i] = candidates[0]; }
   });
 
   const pitchW=440, pitchH=580;
@@ -801,30 +845,120 @@ function changeFormation(f){
 }
 function changeTactic(t){ G.team.tactic=t; saveGame(); }
 
-function openSwapModal(id){
-  const myP=G.team.players.find(p=>p.id===id);
-  const others=G.team.players.filter(p=>p.id!==id&&!p.injured);
-  let rows=others.map(p=>`<tr>
-    <td>${p.inStarting?'▶️':'🪑'}</td>
-    <td>${p.name}</td>
-    <td><span class="pos-badge pos-${p.pos}">${p.pos}</span></td>
-    <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
-    <td><button class="btn btn-sm btn-green" onclick="swapPlayers('${id}','${p.id}')">Tauschen</button></td>
-  </tr>`).join('');
+// Stores which formation slot each player is assigned to
+// slotAssignments: { playerId: slotIndex }
+function getSlotAssignments(){
+  if(!G.slotAssignments) G.slotAssignments = {};
+  return G.slotAssignments;
+}
+
+function openSwapModal(playerId){
+  const myP = G.team.players.find(p=>p.id===playerId);
+  if(!myP) return;
+  const form = FORMATIONS[G.team.formation];
+  const slots = G.slotAssignments || {};
+
+  // Tab 1: Spieler tauschen
+  const others = G.team.players.filter(p=>p.id!==playerId&&!p.injured);
+  let swapRows = others.map(p=>{
+    const fit = p.pos===myP.pos ? '✅' : (p.altPositions||[]).includes(myP.pos) ? '🟡' : '⚠️';
+    return `<tr>
+      <td>${p.inStarting?'▶️':'🪑'}</td>
+      <td>${p.name}</td>
+      <td><span class="pos-badge pos-${p.pos}">${p.pos}</span>${(p.altPositions||[]).map(a=>`<span class="pos-badge pos-${a}" style="opacity:.6;margin-left:2px">${a}</span>`).join('')}</td>
+      <td style="font-family:Oswald;color:var(--gold)">${p.rating}</td>
+      <td>${fit}</td>
+      <td><button class="btn btn-sm btn-green" onclick="swapPlayers('${playerId}','${p.id}')">Tauschen</button></td>
+    </tr>`;
+  }).join('');
+
+  // Tab 2: Position auf dem Feld ändern
+  const allPos = ['TW','IV','LA','RA','DM','ZM','OM','LS','RS','ST'];
+  const usedSlots = Object.values(slots);
+  let posButtons = allPos.map(pos=>{
+    const isNative = myP.pos === pos;
+    const isAlt = (myP.altPositions||[]).includes(pos);
+    const label = isNative ? '✅ Stamm' : isAlt ? '🟡 Alt' : '⚠️ Fremd';
+    const color = isNative ? 'btn-green' : isAlt ? 'btn-gold' : '';
+    return `<button class="btn btn-sm ${color}" style="margin:3px" onclick="assignPlayerToPos('${playerId}','${pos}')">
+      <span class="pos-badge pos-${pos}">${pos}</span> ${label}
+    </button>`;
+  }).join('');
+
   const html=`<div class="modal-overlay" onclick="if(event.target===this)this.remove()">
-    <div class="modal">
+    <div class="modal" style="max-width:480px">
       <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
-      <div class="modal-title">↔️ ${myP.name} austauschen</div>
-      <table><thead><tr><th></th><th>Name</th><th>Pos</th><th>Stä</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table>
+      <div class="modal-title">⚽ ${myP.name} <span class="pos-badge pos-${myP.pos}">${myP.pos}</span> (${myP.rating})</div>
+      ${myP.altPositions?.length ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Kann auch spielen als: ${(myP.altPositions||[]).map(a=>`<span class="pos-badge pos-${a}">${a}</span>`).join(' ')}</div>` : ''}
+
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-sm btn-green" id="tab-swap-btn" onclick="switchTab('swap')">↔️ Tauschen</button>
+        <button class="btn btn-sm" id="tab-pos-btn" onclick="switchTab('pos')">📍 Position ändern</button>
+      </div>
+
+      <div id="tab-swap">
+        <table style="font-size:12px"><thead><tr><th></th><th>Name</th><th>Pos</th><th>Stä</th><th>Fit</th><th></th></tr></thead>
+        <tbody>${swapRows}</tbody></table>
+      </div>
+      <div id="tab-pos" style="display:none">
+        <p style="color:var(--text-dim);font-size:12px;margin-bottom:8px">Wähle auf welcher Position ${myP.name} eingesetzt wird:</p>
+        <div style="display:flex;flex-wrap:wrap">${posButtons}</div>
+      </div>
     </div></div>`;
-  document.body.insertAdjacentHTML('beforeend',html);
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function switchTab(tab){
+  document.getElementById('tab-swap').style.display = tab==='swap' ? '' : 'none';
+  document.getElementById('tab-pos').style.display  = tab==='pos'  ? '' : 'none';
+  document.getElementById('tab-swap-btn').className = 'btn btn-sm' + (tab==='swap' ? ' btn-green' : '');
+  document.getElementById('tab-pos-btn').className  = 'btn btn-sm' + (tab==='pos'  ? ' btn-green' : '');
+}
+
+function assignPlayerToPos(playerId, targetPos){
+  if(!G.slotAssignments) G.slotAssignments = {};
+  const player = G.team.players.find(p=>p.id===playerId);
+  if(!player) return;
+
+  // Find the formation slot for targetPos that isn't taken by someone else
+  const form = FORMATIONS[G.team.formation];
+  const slotIdx = form.findIndex((s,i)=> s.pos===targetPos && G.team.players.every(p=> p.id===playerId || (G.slotAssignments[p.id]!==i)));
+
+  if(slotIdx === -1){
+    notify(`Keine freie ${targetPos}-Position in dieser Formation!`, 'red');
+    return;
+  }
+
+  // Remove old slot assignment for this player
+  delete G.slotAssignments[playerId];
+
+  // If another player had this slot, clear theirs too
+  Object.keys(G.slotAssignments).forEach(pid=>{
+    if(G.slotAssignments[pid]===slotIdx) delete G.slotAssignments[pid];
+  });
+
+  G.slotAssignments[playerId] = slotIdx;
+  player.inStarting = true;
+
+  const isNative = player.pos === targetPos;
+  const isAlt = (player.altPositions||[]).includes(targetPos);
+  const warn = isNative ? '' : isAlt ? ' (Nebenposition)' : ' ⚠️ Außerhalb seiner Positionen!';
+  notify(`${player.name} → ${targetPos}${warn}`, isNative||isAlt ? 'green' : 'red');
+
+  document.querySelector('.modal-overlay')?.remove();
+  saveGame(); renderPage();
 }
 
 function swapPlayers(id1,id2){
   const p1=G.team.players.find(p=>p.id===id1);
   const p2=G.team.players.find(p=>p.id===id2);
   const tmp=p1.inStarting; p1.inStarting=p2.inStarting; p2.inStarting=tmp;
+  // Swap slot assignments too
+  if(G.slotAssignments){
+    const s1=G.slotAssignments[id1], s2=G.slotAssignments[id2];
+    if(s1!==undefined) G.slotAssignments[id2]=s1; else delete G.slotAssignments[id2];
+    if(s2!==undefined) G.slotAssignments[id1]=s2; else delete G.slotAssignments[id1];
+  }
   document.querySelector('.modal-overlay')?.remove();
   saveGame(); renderPage();
 }
@@ -912,10 +1046,17 @@ function simMatchFull(match, fast=false){
   let hg=0,ag=0;
   const events=[];
   const scorers={h:[],a:[]};
-  
+
+  // Torwahrscheinlichkeit basiert auf Stärkedifferenz
+  // Basis: ~2.2 Tore pro Spiel gesamt, Stärke verschiebt Verteilung stark
+  const strDiff = (hStr+hAdj) - (aStr+aAdj);
+  // Gesamte Torchance pro Minute: zwischen 0.025 und 0.04
+  const totalGoalChance = 0.030 + (Math.abs(strDiff) * 0.0002);
+  // hChance bereits berechnet oben (Anteil Heimtore)
+
   // Simulate 90 minutes
   for(let min=1;min<=90;min++){
-    if(Math.random()<0.05){
+    if(Math.random()<totalGoalChance){
       const isH=Math.random()<hChance;
       const team=isH?hTeam:aTeam;
       const scorer=pick(team.players.filter(p=>p.inStarting||team.players.slice(0,11).includes(p)));
@@ -1120,6 +1261,7 @@ function simulateWeek(){
       if(p.trainingWeeks<=0){
         p.rating=Math.min(p.potential,p.trainingTarget);
         p.trainingWeeks=0;
+        recalcValue(p);
         addNews('Training!',`${p.name} hat Stärke ${p.rating} erreicht!`,'green');
       }
     }
