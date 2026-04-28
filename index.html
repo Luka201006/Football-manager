@@ -184,6 +184,9 @@
   </div>
   <div class="main">
     <div id="sidebar">
+      <div style="padding:6px 8px">
+        <button onclick="localStorage.clear();location.reload()" style="width:100%;background:#c0392b;color:white;border:none;padding:7px;border-radius:6px;cursor:pointer;font-size:11px">🔄 Reset &amp; Neu laden</button>
+      </div>
       <button class="nav-btn active" onclick="showPage('dashboard')">🏠 Dashboard</button>
       <button class="nav-btn" onclick="showPage('kader')">👥 Kader</button>
       <button class="nav-btn" onclick="showPage('aufstellung')">🟢 Aufstellung</button>
@@ -216,21 +219,7 @@ const SECONDARY_POS = {
   'RS':  ['ST','OM','LS'],
   'ST':  ['LS','RS','OM'],
 };
-const BENCH_POSITIONS = ['TW','IV','LA','RA','DM','ZM','OM','ST','LS','RS','IV'];
 
-// Spieler können mehrere Positionen spielen
-const SECONDARY_POS = {
-  'TW':  [],
-  'IV':  ['DM','LA','RA'],
-  'LA':  ['IV','RA','ZM'],
-  'RA':  ['IV','LA','ZM'],
-  'DM':  ['IV','ZM'],
-  'ZM':  ['DM','OM','LA','RA'],
-  'OM':  ['ZM','LS','RS','ST'],
-  'LS':  ['ST','OM','RS'],
-  'RS':  ['ST','OM','LS'],
-  'ST':  ['LS','RS','OM'],
-};
 
 // y: 88=unten(TW), 12=oben(Sturm). x: 10=links, 90=rechts.
 // Abwehr von links nach rechts: LA, IV, IV, RA
