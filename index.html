@@ -498,11 +498,11 @@ function compatiblePos(ppos,slotpos){
   return (FALLBACK[slotpos]||[]).includes(ppos);
 }
 
-function saveGame(){localStorage.setItem('fussball_manager_v3',JSON.stringify(G));}
+function saveGame(){G._curPage=curPage; localStorage.setItem('fussball_manager_v3',JSON.stringify(G));}
 function loadGame(){
   try{
     const d=localStorage.getItem('fussball_manager_v3');
-    if(d){G=JSON.parse(d);return true;}
+    if(d){G=JSON.parse(d); if(G._curPage) curPage=G._curPage; return true;}
   }catch(e){}
   return false;
 }
@@ -545,6 +545,8 @@ function showPage(page){
 function renderPage(){
   updateHeader();
   const c=document.getElementById('content');
+  // Don't destroy live match
+  if(curPage==='spiel' && matchRunning) return;
   switch(curPage){
     case 'dashboard': c.innerHTML=pageDashboard(); break;
     case 'kader': c.innerHTML=pageKader(); break;
@@ -843,7 +845,7 @@ function changeFormation(f){
   autoAssignStarting();
   saveGame(); renderPage();
 }
-function changeTactic(t){ G.team.tactic=t; saveGame(); }
+function changeTactic(t){ G.team.tactic=t; saveGame(); renderPage(); }
 
 // Stores which formation slot each player is assigned to
 // slotAssignments: { playerId: slotIndex }
@@ -1136,12 +1138,16 @@ function startMatch(){
 }
 
 function skipToEnd(){
+  if(G.awaitingNextRound){ notify('Erst Woche simulieren!','red'); return; }
   clearInterval(matchInterval);
   matchRunning=false;
   const match=getNextMatch();
   if(!match||match.played) return;
   const result=simMatchFull(match, true);
   finishMatch(match, result);
+  // Force re-render after skip
+  const c=document.getElementById('content');
+  if(c && curPage==='spiel') c.innerHTML=pageSpiel();
 }
 
 function finishMatch(match, result){
@@ -1248,6 +1254,12 @@ function finishMatch(match, result){
 
 function simulateWeek(){
   if(!G.awaitingNextRound) return;
+  // Disable button during simulation
+  const btn = document.querySelector('.btn-gold[onclick="simulateWeek()"]');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Simuliere Woche...'; }
+  setTimeout(()=>_doSimulateWeek(), 1200);
+}
+function _doSimulateWeek(){
   G.awaitingNextRound = false;
 
   // Fitness erholen
@@ -1288,7 +1300,7 @@ function simulateWeek(){
   }
   G.week++;
   G.team.budget+=Math.round(G.team.income*0.25); // wöchentliche Einnahmen
-  notify('Woche simuliert – bereit für das nächste Spiel!','green');
+  notify('Woche simuliert – bereit für das nächste Spiel! ✅','green');
   saveGame(); renderPage();
 }
 
